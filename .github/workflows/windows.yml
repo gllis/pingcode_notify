@@ -1,0 +1,21 @@
+name: Windows Build
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.10.7'
+
+      - run: flutter pub get
+
+      - run: flutter build windows
