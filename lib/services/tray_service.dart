@@ -34,42 +34,49 @@ class TrayService {
     this.onWindowClose = onWindowClose;
     this.onTrayDoubleClick = onTrayDoubleClick;
 
-    // 初始化系统托盘 - 只显示图标，不显示文本
-    await _systemTray.initSystemTray(
-      iconPath: _getIconPath(),
-      toolTip: 'PingCode 任务监控',
-    );
+    try {
+      // 初始化系统托盘 - 只显示图标，不显示文本
+      await _systemTray.initSystemTray(
+        iconPath: _getIconPath(),
+        toolTip: 'PingCode 任务监控',
+      );
 
-    // 创建托盘菜单
-    final menu = Menu();
-    await menu.buildFrom([
-      MenuItemLabel(
-        label: '显示窗口',
-        onClicked: (menuItem) {
+      // 创建托盘菜单
+      final menu = Menu();
+      await menu.buildFrom([
+        MenuItemLabel(
+          label: '显示窗口',
+          onClicked: (menuItem) {
+            this.onTrayDoubleClick?.call();
+          },
+        ),
+        MenuSeparator(),
+        MenuItemLabel(
+          label: '退出',
+          onClicked: (menuItem) {
+            this.onWindowClose?.call();
+          },
+        ),
+      ]);
+
+      await _systemTray.setContextMenu(menu);
+
+      // 注册双击事件
+      _systemTray.registerSystemTrayEventHandler((eventName) {
+        if (eventName == kSystemTrayEventClick) {
           this.onTrayDoubleClick?.call();
-        },
-      ),
-      MenuSeparator(),
-      MenuItemLabel(
-        label: '退出',
-        onClicked: (menuItem) {
-          this.onWindowClose?.call();
-        },
-      ),
-    ]);
+        } else if (eventName == kSystemTrayEventRightClick) {
+          _systemTray.popUpContextMenu();
+        }
+      });
 
-    await _systemTray.setContextMenu(menu);
-
-    // 注册双击事件
-    _systemTray.registerSystemTrayEventHandler((eventName) {
-      if (eventName == kSystemTrayEventClick) {
-        this.onTrayDoubleClick?.call();
-      } else if (eventName == kSystemTrayEventRightClick) {
-        _systemTray.popUpContextMenu();
-      }
-    });
-
-    _isInitialized = true;
+      _isInitialized = true;
+    } catch (e) {
+      // 如果托盘初始化失败，打印错误但不阻止应用运行
+      print('Warning: Failed to initialize system tray: $e');
+      // 即使托盘初始化失败，也标记为已初始化以避免重复尝试
+      _isInitialized = true;
+    }
   }
 
   /// 获取图标路径
@@ -77,7 +84,12 @@ class TrayService {
     if (Platform.isMacOS) {
       return 'assets/app_icon.png';
     } else if (Platform.isWindows) {
-      return 'assets/app_icon.ico';
+      // Windows 平台优先尝试 .ico，如果不存在则使用 .png
+      final icoPath = 'assets/app_icon.ico';
+      if (File(icoPath).existsSync()) {
+        return icoPath;
+      }
+      return 'assets/app_icon.png';
     } else {
       return 'assets/app_icon.png';
     }
@@ -86,7 +98,11 @@ class TrayService {
   /// 销毁托盘
   Future<void> dispose() async {
     if (_isInitialized) {
-      await _systemTray.destroy();
+      try {
+        await _systemTray.destroy();
+      } catch (e) {
+        print('Warning: Failed to destroy system tray: $e');
+      }
       _isInitialized = false;
     }
   }

@@ -84,11 +84,16 @@ class _PingCodeNotifyPageState extends State<PingCodeNotifyPage> with WindowList
       _showNotificationDialog(title, body);
     };
 
-    // 初始化托盘服务
-    await _trayService.init(
-      onWindowClose: _exitApp,
-      onTrayDoubleClick: _showWindow,
-    );
+    // 初始化托盘服务 - 使用 try-catch 避免阻止应用启动
+    try {
+      await _trayService.init(
+        onWindowClose: _exitApp,
+        onTrayDoubleClick: _showWindow,
+      );
+    } catch (e) {
+      print('Warning: Tray service initialization failed: $e');
+      // 即使托盘初始化失败，应用也能继续运行
+    }
 
     setState(() {
       _isInitialized = true;
@@ -107,27 +112,45 @@ class _PingCodeNotifyPageState extends State<PingCodeNotifyPage> with WindowList
 
   /// 隐藏窗口到托盘
   Future<void> _hideToTray() async {
-    await windowManager.hide();
-    setState(() {
-      _isWindowHidden = true;
-    });
+    try {
+      await windowManager.hide();
+      setState(() {
+        _isWindowHidden = true;
+      });
+    } catch (e) {
+      print('Warning: Failed to hide window: $e');
+      // 如果隐藏失败，直接退出应用
+      _exitApp();
+    }
   }
 
   /// 显示窗口
   Future<void> _showWindow() async {
-    await windowManager.show();
-    await windowManager.focus();
-    setState(() {
-      _isWindowHidden = false;
-    });
+    try {
+      await windowManager.show();
+      await windowManager.focus();
+      setState(() {
+        _isWindowHidden = false;
+      });
+    } catch (e) {
+      print('Warning: Failed to show window: $e');
+    }
   }
 
   /// 退出应用
   Future<void> _exitApp() async {
-    await _trayService.dispose();
+    try {
+      await _trayService.dispose();
+    } catch (e) {
+      print('Warning: Failed to dispose tray: $e');
+    }
     _pingCodeService.stop();
-    // 允许窗口关闭
-    await windowManager.destroy();
+    try {
+      // 允许窗口关闭
+      await windowManager.destroy();
+    } catch (e) {
+      print('Warning: Failed to destroy window: $e');
+    }
     exit(0);
   }
 
